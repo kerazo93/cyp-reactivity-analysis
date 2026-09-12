@@ -1,0 +1,3 @@
+condition,row_min,row_max,n_rows_used,col_min,col_max,n_wells
+control,1,4,4,1,48,9644
+treatment,5,32,28,1,48,9700

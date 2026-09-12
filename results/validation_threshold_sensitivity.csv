@@ -1,0 +1,9 @@
+enzyme,normalisation,effect_threshold_pct_remaining,n,substrate,non_substrate,inconclusive,pct_substrate
+CYP2J2,uncorrected,50.0,1223,132,1020,71,10.8
+CYP3A4,uncorrected,50.0,1223,682,392,149,55.8
+CYP2J2,uncorrected,80.0,1223,221,838,164,18.1
+CYP3A4,uncorrected,80.0,1223,839,217,167,68.6
+CYP2J2,offset-corrected,50.0,1223,145,984,94,11.9
+CYP3A4,offset-corrected,50.0,1223,682,392,149,55.8
+CYP2J2,offset-corrected,80.0,1223,269,674,280,22.0
+CYP3A4,offset-corrected,80.0,1223,839,217,167,68.6

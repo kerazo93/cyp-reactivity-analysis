@@ -1,0 +1,2 @@
+n_wells,n_detected,n_nondetect,mass_error_nan_equals_zero_area,ppm_p01,ppm_median,ppm_p99,ppm_abs_max
+19344,18496,848,True,-3.879643593324155,0.36761874833146635,3.0651533690417847,9.98335637591996

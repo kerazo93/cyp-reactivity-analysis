@@ -1,0 +1,9 @@
+# Vendor catalogues are large and fetched by scripts/fetch_zinc.py
+data/external/
+data/processed/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+.pytest_cache/
+env_build.log

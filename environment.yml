@@ -1,0 +1,26 @@
+# Reproducible environment for the CYP reactivity analysis.
+#
+#   conda env create -f environment.yml
+#   conda activate cyp-reactivity
+#
+# Versions are deliberately loose here so the solver stays fast across
+# platforms; the exact resolved versions used for the published results are
+# recorded in environment.lock.yml.
+name: cyp-reactivity
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - rdkit          # fingerprints, descriptors, scaffolds, MMPA
+  - pandas
+  - numpy
+  - scipy
+  - scikit-learn
+  - statsmodels
+  - lightgbm
+  - matplotlib
+  - seaborn
+  - tqdm
+  - pytest
+  - ipykernel
+  - jupyterlab
