@@ -166,7 +166,51 @@ scaffold-diverse. Reported rather than assumed.
 
 ## Part 3 — Follow-up selection
 
-See [`results/followup_1000.csv`](results/followup_1000.csv). Method and rationale in
+The obvious move — rank purchasable space by predicted reactivity and buy the top 1,000 — would
+teach us almost nothing. 72% of the assayed library are already CYP3A4 substrates and the model's
+scaffold-split ROC-AUC is 0.82, so a thousand high-confidence predictions would return ~900 hits
+and confirm what we already believe. The budget is instead allocated across five objectives, each
+with a stated prediction the experiment can falsify.
+
+**Pool**: 2,723,363 in-stock ZINC20 compounds (purchasability A/B) → 380,267 after the property
+window and PAINS → 300,000 scored → 296,808 eligible after the detectability and novelty filters.
+The surviving pool matches the assayed library closely (median MW 397 vs 421 Da, cLogP 3.56 vs 3.60).
+
+| Bucket | n | Predicted % remaining (min / median / max) | Question it answers |
+|---|---|---|---|
+| Activity-cliff resolution | 250 | 0.1 / 7.4 / 69.3 | Does a confirmed cliff generalise into new chemistry? |
+| Substructure hypothesis tests | 240 | 0.2 / 3.1 / 61.9 | Are the enriched/depleted groups causal or confounded? |
+| Uncertainty sampling | 210 | 0.4 / 1.4 / 7.4 | Where does the model genuinely not know? |
+| Model validation | 200 | 0.1 / 3.3 / 81.5 | Do the predicted values mean what they say? |
+| Chemical-space expansion | 100 | 1.3 / 9.5 / 44.3 | Does anything transfer outside the training domain? |
+
+Note the validation and substructure buckets deliberately span up to ~80% predicted remaining:
+they buy compounds predicted **inactive**. Calibration cannot be measured where no predictions
+exist, and the classifier never predicts below ~0.42 because prevalence is 87.6%, so the low end is
+untestable without purchasing it.
+
+**Two constraints on every bucket.** Compounds must be predicted **MS-detectable** — a compound
+that does not ionise yields no measurement at all, and the blog concedes this pre-filter "blinds us
+to a subset of chemical space". The detectability model, trained on the 11,353-compound ionisation
+screen, reaches ROC-AUC 0.900 / PR-AUC 0.986; the threshold is data-derived, being the weakest
+control well (2,824) that actually supported a reactivity measurement here. Every bucket is also
+diversity-capped so one series cannot consume it.
+
+**Applicability domain, stated honestly.** 470 of the 1,000 (47%) fall outside the domain, though
+only 100 were chosen for that purpose. This is not a selection defect: in-stock vendor space is
+simply more distant from this diversity library than the library is from itself (vendor median
+nearest-neighbour Tanimoto 0.35, versus 0.68 among training compounds). The cutoff is the 10th
+percentile of the training set's own internal nearest-neighbour similarity (0.340) rather than a
+round number — anything stricter would place most of the library itself out of domain. This is the
+real scope limit on every prediction here, and it is the strongest argument for funding the
+expansion bucket at all.
+
+→ [`results/followup_1000.csv`](results/followup_1000.csv) — per compound: ZINC ID, SMILES, bucket,
+predicted log10 fold-change with tree-disagreement uncertainty, predicted detectability,
+nearest-neighbour similarity and domain flag, similarity to the nearest confirmed cliff, MW/cLogP,
+and a `vendor_lookup` URL resolving to current suppliers and catalogue numbers.
+
+Full reasoning per bucket, including what a surprising result would mean, in
 [`reports/part3_rationale.md`](reports/part3_rationale.md).
 
 ---

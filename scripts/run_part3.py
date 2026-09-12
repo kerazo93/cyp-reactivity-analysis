@@ -63,6 +63,12 @@ def main() -> None:
     train_feats = features.build_feature_table(train["standardized_smiles"])
     train = pd.concat([train, train_feats], axis=1)
 
+    # Each training compound's nearest *other* training compound, for the
+    # applicability-domain definition below.
+    train_nn = np.array([
+        max(np.delete(np.array(DataStructs.BulkTanimotoSimilarity(f, train_fps)), i))
+        for i, f in enumerate(train_fps)])
+
     folds = models.scaffold_folds(train["murcko_scaffold"])
     reg_metrics, _ = models.cross_validate_regression(X_train, y_train, folds)
     reg_metrics.to_csv(RESULTS / "part3_regressor_cv.csv", index=False)
@@ -145,6 +151,16 @@ def main() -> None:
     for j, name in enumerate(smarts):
         cand[f"has_{name}"] = sub_flags[:, j]
 
+    # ---- applicability domain -------------------------------------------
+    # "In domain" is defined against the training set's own internal structure:
+    # a candidate qualifies if its nearest training neighbour is at least as
+    # similar as the 10th percentile of training compounds' nearest neighbours
+    # to each other. Anything stricter would call most of the library itself
+    # out of domain.
+    ad_threshold = float(np.percentile(train_nn, 10))
+    print(f"\n[domain] training internal NN Tanimoto: median "
+          f"{np.median(train_nn):.3f}, p10 {ad_threshold:.3f} -> AD cutoff")
+
     # ---- hard constraints ------------------------------------------------
     eligible = cand.index[
         (cand["p_detectable"] >= 0.5) &
@@ -185,9 +201,12 @@ def main() -> None:
         pool = avail(col)
         if len(pool) == 0:
             continue
-        # span the predicted range within each group so the test is not confounded
-        pri = -np.abs(prob_like[pool] - 0.5)
-        got = selection.greedy_diverse(pool, keep_fps, per_group, 0.75, pri)
+        # Span the predicted range within each group, so the substructure's
+        # effect is not confounded with predicted activity. Selecting compounds
+        # *near* the midpoint (the obvious reading of "middle of the range")
+        # collapses the bucket onto a single predicted value and tests nothing.
+        got = selection.stratified_by_probability(prob_like, pool, per_group,
+                                                  keep_fps, n_bins=5, max_sim=0.75)
         sub_idx.extend(got); taken.update(got)
     picks["substructure_test"] = sub_idx
 
@@ -199,7 +218,7 @@ def main() -> None:
     picks["uncertainty_sampling"] = idx; taken.update(idx)
 
     # 5. chemical-space expansion -- deliberately outside the training domain
-    far = cand["max_sim_to_training"].to_numpy() < 0.35
+    far = cand["max_sim_to_training"].to_numpy() < ad_threshold
     pool = avail(far)
     idx = selection.greedy_diverse(pool, keep_fps, buckets["space_expansion"],
                                    max_sim=0.70,
@@ -227,7 +246,7 @@ def main() -> None:
     out = out.head(args.budget)
 
     out["pct_remaining_pred"] = 100 * 10 ** out["pred_log10fc"]
-    out["in_applicability_domain"] = out["max_sim_to_training"] >= 0.35
+    out["in_applicability_domain"] = out["max_sim_to_training"] >= ad_threshold
     out["vendor_lookup"] = "https://zinc20.docking.org/substances/" + out["zinc_id"].astype(str)
 
     cols = ["zinc_id", "smiles", "bucket", "pred_log10fc", "pct_remaining_pred",
@@ -244,8 +263,16 @@ def main() -> None:
         ["count", "min", "50%", "max"]].round(1).to_string())
     print(f"\n[select] median nearest-neighbour similarity to training set: "
           f"{out['max_sim_to_training'].median():.3f}")
-    print(f"[select] outside applicability domain (by design, expansion bucket): "
-          f"{int((~out['in_applicability_domain']).sum())}")
+    n_out = int((~out["in_applicability_domain"]).sum())
+    print(f"[select] outside applicability domain: {n_out} of {len(out)} "
+          f"({100*n_out/len(out):.0f}%) -- only {buckets['space_expansion']} were "
+          "selected for that purpose. In-stock vendor space is simply more "
+          "distant from this diversity library than the library is from itself "
+          f"(vendor median NN {out['max_sim_to_training'].median():.2f} vs "
+          f"training internal median {np.median(train_nn):.2f}), which is the "
+          "honest scope limit on any prediction made here.")
+    print("[select] predicted % remaining spread per bucket (min/median/max above) "
+          "-- substructure_test should span, not cluster.")
     try:
         cand.drop(columns=["smiles"]).to_parquet(PROC / "zinc_scored.parquet", index=False)
     except Exception:
