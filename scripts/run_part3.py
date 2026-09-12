@@ -43,7 +43,13 @@ def main() -> None:
     ap.add_argument("--pool-size", type=int, default=300_000,
                     help="candidates sampled from the in-stock pool (0 = all)")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--candidates", type=Path, default=PROC / "zinc_candidates.parquet")
+    ap.add_argument("--out", type=Path, default=RESULTS / "followup_1000.csv")
+    ap.add_argument("--budget", type=int, default=BUDGET)
     args = ap.parse_args()
+
+    scale = args.budget / BUDGET
+    buckets = {k: max(1, int(round(v * scale))) for k, v in BUCKETS.items()}
 
     desc_cols = list(features.DESCRIPTORS)
     rng = np.random.default_rng(args.seed)
@@ -93,7 +99,7 @@ def main() -> None:
     print(f"[chem] implicated substructures to test: {implicated}")
 
     # ---- candidate pool --------------------------------------------------
-    cand = pd.read_parquet(PROC / "zinc_candidates.parquet")
+    cand = pd.read_parquet(args.candidates)
     print(f"\n[pool] in-stock candidates after filtering: {len(cand):,}")
     if args.pool_size and len(cand) > args.pool_size:
         cand = cand.sample(args.pool_size, random_state=args.seed).reset_index(drop=True)
@@ -155,20 +161,20 @@ def main() -> None:
     # 1. calibration across the predicted range
     p = cand["pred_log10fc"].to_numpy()
     prob_like = (p - p.min()) / max(p.max() - p.min(), 1e-9)
-    idx = selection.stratified_by_probability(prob_like, avail(), BUCKETS["model_validation"],
+    idx = selection.stratified_by_probability(prob_like, avail(), buckets["model_validation"],
                                               keep_fps)
     picks["model_validation"] = idx; taken.update(idx)
 
     # 2. cliff neighbourhoods
     near = cand["max_sim_to_cliff"].to_numpy() >= 0.55
     pool = avail(near)
-    idx = selection.greedy_diverse(pool, keep_fps, BUCKETS["cliff_resolution"],
+    idx = selection.greedy_diverse(pool, keep_fps, buckets["cliff_resolution"],
                                    max_sim=0.75,
                                    priority=cand["max_sim_to_cliff"].to_numpy()[pool])
     picks["cliff_resolution"] = idx; taken.update(idx)
 
     # 3. substructure hypothesis tests -- split evenly over implicated groups
-    per_group = max(1, BUCKETS["substructure_test"] // max(len(smarts), 1))
+    per_group = max(1, buckets["substructure_test"] // max(len(smarts), 1))
     sub_idx: list[int] = []
     for name in smarts:
         col = cand[f"has_{name}"].to_numpy()
@@ -183,7 +189,7 @@ def main() -> None:
 
     # 4. uncertainty sampling
     pool = avail()
-    idx = selection.greedy_diverse(pool, keep_fps, BUCKETS["uncertainty_sampling"],
+    idx = selection.greedy_diverse(pool, keep_fps, buckets["uncertainty_sampling"],
                                    max_sim=0.75,
                                    priority=cand["pred_uncertainty"].to_numpy()[pool])
     picks["uncertainty_sampling"] = idx; taken.update(idx)
@@ -191,7 +197,7 @@ def main() -> None:
     # 5. chemical-space expansion -- deliberately outside the training domain
     far = cand["max_sim_to_training"].to_numpy() < 0.35
     pool = avail(far)
-    idx = selection.greedy_diverse(pool, keep_fps, BUCKETS["space_expansion"],
+    idx = selection.greedy_diverse(pool, keep_fps, buckets["space_expansion"],
                                    max_sim=0.70,
                                    priority=-cand["max_sim_to_training"].to_numpy()[pool])
     picks["space_expansion"] = idx; taken.update(idx)
@@ -206,15 +212,15 @@ def main() -> None:
         frames.append(sub)
     out = pd.concat(frames).drop_duplicates(subset="zinc_id")
 
-    if len(out) < BUDGET:
-        short = BUDGET - len(out)
+    if len(out) < args.budget:
+        short = args.budget - len(out)
         pool = avail()
         extra = selection.greedy_diverse(pool, keep_fps, short, 0.75,
                                          cand["pred_uncertainty"].to_numpy()[pool])
         if extra:
             ex = cand.loc[extra].copy(); ex["bucket"] = "uncertainty_sampling"
             out = pd.concat([out, ex])
-    out = out.head(BUDGET)
+    out = out.head(args.budget)
 
     out["pct_remaining_pred"] = 100 * 10 ** out["pred_log10fc"]
     out["in_applicability_domain"] = out["max_sim_to_training"] >= 0.35
@@ -225,9 +231,9 @@ def main() -> None:
             "in_applicability_domain", "max_sim_to_cliff", "mw", "clogp",
             "tranche", "purchasability", "vendor_lookup"] + \
            [f"has_{k}" for k in smarts]
-    out[cols].to_csv(RESULTS / "followup_1000.csv", index=False)
+    out[cols].to_csv(args.out, index=False)
 
-    print(f"\n[select] {len(out)} compounds -> results/followup_1000.csv")
+    print(f"\n[select] {len(out)} compounds -> {args.out}")
     print(out["bucket"].value_counts().to_string())
     print("\n[select] predicted % remaining by bucket:")
     print(out.groupby("bucket")["pct_remaining_pred"].describe()[

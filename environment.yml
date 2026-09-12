@@ -20,6 +20,7 @@ dependencies:
   - lightgbm
   - matplotlib
   - seaborn
+  - pyarrow        # parquet IO for the candidate pool
   - tqdm
   - pytest
   - ipykernel
