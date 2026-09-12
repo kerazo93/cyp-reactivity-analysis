@@ -99,7 +99,11 @@ def main() -> None:
     print(f"[chem] implicated substructures to test: {implicated}")
 
     # ---- candidate pool --------------------------------------------------
-    cand = pd.read_parquet(args.candidates)
+    cand = (pd.read_parquet(args.candidates) if str(args.candidates).endswith("parquet")
+            else pd.read_csv(args.candidates))
+    if not Path(args.candidates).exists():
+        alt = PROC / "zinc_candidates.csv.gz"
+        cand = pd.read_csv(alt)
     print(f"\n[pool] in-stock candidates after filtering: {len(cand):,}")
     if args.pool_size and len(cand) > args.pool_size:
         cand = cand.sample(args.pool_size, random_state=args.seed).reset_index(drop=True)
@@ -242,7 +246,11 @@ def main() -> None:
           f"{out['max_sim_to_training'].median():.3f}")
     print(f"[select] outside applicability domain (by design, expansion bucket): "
           f"{int((~out['in_applicability_domain']).sum())}")
-    cand.drop(columns=["smiles"]).to_parquet(PROC / "zinc_scored.parquet", index=False)
+    try:
+        cand.drop(columns=["smiles"]).to_parquet(PROC / "zinc_scored.parquet", index=False)
+    except Exception:
+        cand.drop(columns=["smiles"]).to_csv(PROC / "zinc_scored.csv.gz",
+                                             index=False, compression="gzip")
 
 
 if __name__ == "__main__":

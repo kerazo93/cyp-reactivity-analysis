@@ -112,7 +112,12 @@ def main() -> None:
 
     DEST.mkdir(parents=True, exist_ok=True)
     out = DEST / "zinc_candidates.parquet"
-    df.to_parquet(out, index=False)
+    try:
+        df.to_parquet(out, index=False)
+    except Exception as exc:  # never discard a long run over a writer problem
+        out = DEST / "zinc_candidates.csv.gz"
+        df.to_csv(out, index=False, compression="gzip")
+        print(f"[prep] parquet unavailable ({type(exc).__name__}); wrote {out}")
 
     print(f"\n[prep] rejected -- unparseable {n_bad:,}, outside window {n_window:,}, "
           f"PAINS {n_pains:,}, duplicates {n_pre - len(df):,}")
