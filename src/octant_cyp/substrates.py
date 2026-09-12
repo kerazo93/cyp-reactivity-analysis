@@ -24,7 +24,7 @@ from .stats import (
     benjamini_hochberg,
     ebayes_moderated_t,
     fit_censored_contrast,
-    tost_equivalence,
+
 )
 
 #: Depletion large enough to matter biologically, as a fold-change.  0.80 = 20%

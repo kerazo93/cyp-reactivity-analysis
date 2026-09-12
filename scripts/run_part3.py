@@ -52,7 +52,7 @@ def main() -> None:
     buckets = {k: max(1, int(round(v * scale))) for k, v in BUCKETS.items()}
 
     desc_cols = list(features.DESCRIPTORS)
-    rng = np.random.default_rng(args.seed)
+
 
     # ---- training data ---------------------------------------------------
     calls = pd.read_csv(RESULTS / "reactivity_calls_all.csv")

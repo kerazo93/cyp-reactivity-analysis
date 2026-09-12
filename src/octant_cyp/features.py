@@ -18,7 +18,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, Crippen, Descriptors, rdFingerprintGenerator
+from rdkit.Chem import Crippen, Descriptors, rdFingerprintGenerator
 from rdkit.Chem.Scaffolds import MurckoScaffold
 
 RDLogger.DisableLog("rdApp.*")
