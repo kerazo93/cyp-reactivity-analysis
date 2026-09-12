@@ -143,3 +143,75 @@ def applicability_domain(query_fps: list, train_fps: list) -> np.ndarray:
             continue
         out[i] = max(DataStructs.BulkTanimotoSimilarity(f, train))
     return out
+
+
+# --------------------------------------------------------------------------
+# Regression on the continuous effect
+# --------------------------------------------------------------------------
+def _regressors(seed: int = 0) -> dict:
+    from sklearn.dummy import DummyRegressor
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.linear_model import RidgeCV
+    return {
+        "baseline_mean": DummyRegressor(strategy="mean"),
+        "ridge_descriptors": make_pipeline(StandardScaler(), RidgeCV()),
+        "random_forest": RandomForestRegressor(
+            n_estimators=500, min_samples_leaf=2, n_jobs=-1, random_state=seed),
+    }
+
+
+def cross_validate_regression(X: np.ndarray, y: np.ndarray,
+                              groups: np.ndarray | None, n_splits: int = 5,
+                              seed: int = 0) -> tuple[pd.DataFrame, dict]:
+    """Scaffold-grouped CV for the continuous log fold-change.
+
+    Preferred over classification for ranking candidates in Part 3: it uses all
+    1,223 compounds rather than only the ones Part 1 could confidently classify,
+    it does not depend on where the substrate/non-substrate boundary is drawn,
+    and ranking is what a selection actually needs.
+    """
+    from scipy import stats as _st
+    from sklearn.base import clone
+    from sklearn.metrics import mean_absolute_error, r2_score
+
+    models = _regressors(seed)
+    if groups is not None:
+        split_iter = list(GroupKFold(n_splits=n_splits).split(X, y, groups))
+    else:
+        split_iter = list(KFold(n_splits=n_splits, shuffle=True,
+                                random_state=seed).split(X, y))
+
+    oof = {name: np.full(len(y), np.nan) for name in models}
+    for tr, te in split_iter:
+        for name, proto in models.items():
+            mdl = clone(proto)
+            mdl.fit(X[tr], y[tr])
+            oof[name][te] = mdl.predict(X[te])
+
+    rows = []
+    for name, pred in oof.items():
+        ok = np.isfinite(pred)
+        rho, _ = _st.spearmanr(y[ok], pred[ok])
+        rows.append({
+            "model": name,
+            "r2": r2_score(y[ok], pred[ok]),
+            "mae": mean_absolute_error(y[ok], pred[ok]),
+            "spearman": float(rho),
+            "n": int(ok.sum()),
+        })
+    return pd.DataFrame(rows), oof
+
+
+def fit_final_regressor(X: np.ndarray, y: np.ndarray, seed: int = 0):
+    """Refit the chosen regressor on all labelled data, for scoring candidates."""
+    from sklearn.ensemble import RandomForestRegressor
+    mdl = RandomForestRegressor(n_estimators=500, min_samples_leaf=2,
+                                n_jobs=-1, random_state=seed)
+    mdl.fit(X, y)
+    return mdl
+
+
+def forest_spread(model, X: np.ndarray) -> np.ndarray:
+    """Std of per-tree predictions -- epistemic uncertainty for a regressor."""
+    per_tree = np.stack([t.predict(X) for t in model.estimators_])
+    return per_tree.std(axis=0)
