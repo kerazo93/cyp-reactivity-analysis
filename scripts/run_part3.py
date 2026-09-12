@@ -147,8 +147,10 @@ def main() -> None:
     taken: set[int] = set()
 
     def avail(mask: np.ndarray | None = None) -> np.ndarray:
-        pool = np.array([i for i in eligible if i not in taken])
-        return pool if mask is None else pool[mask[pool]]
+        pool = np.array([i for i in eligible if i not in taken], dtype=int)
+        if mask is None or pool.size == 0:
+            return pool
+        return pool[mask[pool]]
 
     # 1. calibration across the predicted range
     p = cand["pred_log10fc"].to_numpy()

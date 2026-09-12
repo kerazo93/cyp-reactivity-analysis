@@ -71,8 +71,11 @@ def greedy_diverse(candidate_idx: np.ndarray, fps: list, n: int,
     If the similarity constraint cannot be satisfied the shortfall is returned
     rather than back-filled with near-duplicates.
     """
-    order = (candidate_idx[np.argsort(-priority)] if priority is not None
-             else candidate_idx)
+    candidate_idx = np.asarray(candidate_idx, dtype=int)
+    if candidate_idx.size == 0:
+        return []
+    order = (candidate_idx[np.argsort(-np.asarray(priority, float))]
+             if priority is not None else candidate_idx)
     picked: list[int] = []
     picked_fps: list = []
     for i in order:
@@ -97,6 +100,9 @@ def stratified_by_probability(prob: np.ndarray, pool: np.ndarray, n: int,
     deliberately buys low- and mid-probability compounds too -- the opposite of
     a top-N selection.
     """
+    pool = np.asarray(pool, dtype=int)
+    if pool.size == 0:
+        return []
     edges = np.linspace(0, 1, n_bins + 1)
     per_bin = max(1, n // n_bins)
     out: list[int] = []
