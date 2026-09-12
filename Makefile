@@ -12,7 +12,7 @@ CLIFFS  := $(RESULTS)/part2_activity_cliffs.csv
 CAND    := data/processed/zinc_candidates.parquet
 FOLLOW  := $(RESULTS)/followup_1000.csv
 
-.PHONY: all test part1 part2 part3 figures data zinc clean distclean
+.PHONY: all test part1 part2 part3 figures notebooks data zinc clean distclean
 
 all: part1 part2 figures part3
 
@@ -46,6 +46,13 @@ figures: $(CALLS) $(CLIFFS)
 
 test:
 	$(PY) -m pytest tests/ -q
+
+## Re-execute the notebooks in place (they are committed with outputs)
+notebooks: $(CALLS) $(CLIFFS) $(FOLLOW)
+	cd notebooks && for nb in *.ipynb; do \
+	  jupyter nbconvert --to notebook --execute --inplace \
+	    --ExecutePreprocessor.timeout=2400 "$$nb" || exit 1; \
+	done
 
 ## --- housekeeping ----------------------------------------------------
 clean:

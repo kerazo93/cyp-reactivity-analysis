@@ -13,6 +13,20 @@ make test        # 18 unit tests over the statistical layer
 make all         # reproduces every CSV and figure from data/raw/
 ```
 
+## Start here
+
+The three notebooks walk through the reasoning — including the decisions, the dead ends and two
+bugs that changed conclusions. They are committed **with outputs**, so they can be read without
+running anything.
+
+| Notebook | Covers |
+|---|---|
+| [`01_part1_substrate_identification.ipynb`](notebooks/01_part1_substrate_identification.ipynb) | Why the released summary can't support a substrate call; censoring; the plate-layout offset; the model and its validation |
+| [`02_part2_chemical_analysis.ipynb`](notebooks/02_part2_chemical_analysis.ipynb) | Substructure and scaffold enrichment; activity cliffs tested rather than ranked; MMPs; the model and its honest limits |
+| [`03_part3_followup_selection.ipynb`](notebooks/03_part3_followup_selection.ipynb) | Why not "top 1,000"; the candidate pool; budget allocation and what each purchase would teach |
+
+The sections below summarise their conclusions.
+
 ---
 
 ## Summary of what the data required
@@ -153,8 +167,9 @@ scaffold-diverse. Reported rather than assumed.
 ### Questions we added
 
 - **Substrate × inhibitor.** All 1,223 reactivity compounds also have CYP3A4 pIC50. The two axes
-  are almost independent (Spearman −0.11): being turned over and inhibiting the enzyme are
-  different properties, and dozens of potent inhibitors are confident non-substrates.
+  are almost independent (Spearman −0.09, p=0.01): being turned over and inhibiting the enzyme are
+  different properties. 20 potent inhibitors (pIC50 > 6) are confident non-substrates — they bind
+  and block without being metabolised, which is the interesting quadrant for DDI work.
 - **CYP3A4 vs CYP2J2 selectivity.** Only weakly correlated (Spearman 0.24). 418 compounds are
   CYP3A4 substrates but CYP2J2 non-substrates; the reverse is much rarer.
 - **Artefact control.** Apparent depletion does **not** track raw control signal
